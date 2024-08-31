@@ -8,3 +8,4 @@ scipy
 plotly.express
 plotly.figure_factory
 io
+plotly
