@@ -4,3 +4,6 @@ pandas
 numpy
 matplotlib
 datetime
+scipy
+plotly
+io
