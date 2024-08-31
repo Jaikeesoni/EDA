@@ -1,143 +1,152 @@
-import io
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.figure_factory as ff
-from scipy import stats
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-def load_data(file):
-    try:
-        if file.name.endswith('.csv'):
-            df = pd.read_csv(file)
-        elif file.name.endswith(('.xls', '.xlsx')):
-            df = pd.read_excel(file)
-        else:
-            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-            return None
-        return df
-    except Exception as e:
-        st.error(f"Error loading file: {e}")
-        return None
+# Function to load data
+@st.cache_data
+def load_data():
+    # For this example, we'll create a sample dataset. In a real scenario, you'd load your actual data here.
+    data = {
+        'Make': ['Maruti', 'Hyundai', 'Tata', 'Mahindra', 'Honda'] * 20,
+        'Model': ['Swift', 'i20', 'Nexon', 'XUV300', 'City'] * 20,
+        'Year': np.random.randint(2015, 2024, 100),
+        'Sales': np.random.randint(5000, 50000, 100),
+        'Price': np.random.randint(500000, 2000000, 100),
+        'Fuel_Type': np.random.choice(['Petrol', 'Diesel', 'Electric', 'CNG'], 100),
+        'Body_Type': np.random.choice(['Hatchback', 'Sedan', 'SUV', 'MUV'], 100),
+    }
+    return pd.DataFrame(data)
 
-def get_numeric_columns(df):
-    return df.select_dtypes(include=[np.number]).columns.tolist()
+# Function for data exploration
+def explore_data(df):
+    st.subheader("Data Overview")
+    st.write(df.head())
+    st.write(f"Shape of the dataset: {df.shape}")
+    
+    st.subheader("Data Types")
+    st.write(df.dtypes)
+    
+    st.subheader("Missing Values")
+    missing_values = df.isnull().sum()
+    st.write(missing_values[missing_values > 0] if missing_values.sum() > 0 else "No missing values found.")
+    
+    st.subheader("Descriptive Statistics")
+    st.write(df.describe())
 
-def get_categorical_columns(df):
-    return df.select_dtypes(include=['object', 'category']).columns.tolist()
+# Function for visualizations
+def create_visualizations(df):
+    st.subheader("Sales Distribution")
+    fig, ax = plt.subplots()
+    sns.histplot(df['Sales'], kde=True, ax=ax)
+    st.pyplot(fig)
+    
+    st.subheader("Top 10 Models by Sales")
+    top_models = df.groupby('Model')['Sales'].sum().sort_values(ascending=False).head(10)
+    fig, ax = plt.subplots()
+    top_models.plot(kind='bar', ax=ax)
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+    
+    st.subheader("Sales by Fuel Type")
+    fig, ax = plt.subplots()
+    df.groupby('Fuel_Type')['Sales'].sum().plot(kind='pie', autopct='%1.1f%%', ax=ax)
+    st.pyplot(fig)
+    
+    st.subheader("Average Price by Body Type")
+    fig, ax = plt.subplots()
+    sns.barplot(x='Body_Type', y='Price', data=df, ax=ax)
+    st.pyplot(fig)
+    
+    st.subheader("Sales Trend Over Years")
+    yearly_sales = df.groupby('Year')['Sales'].sum()
+    fig, ax = plt.subplots()
+    yearly_sales.plot(kind='line', ax=ax)
+    st.pyplot(fig)
+    
+    st.subheader("Price vs Sales Scatter Plot")
+    fig, ax = plt.subplots()
+    sns.scatterplot(x='Price', y='Sales', hue='Make', data=df, ax=ax)
+    st.pyplot(fig)
 
-def plot_histogram(df, column):
-    fig = px.histogram(df, x=column, marginal="box", hover_data=df.columns)
-    st.plotly_chart(fig)
+# Function for insights and recommendations
+def generate_insights_and_recommendations(df):
+    st.subheader("Insights")
+    insights = [
+        f"The dataset contains sales data for {df['Year'].nunique()} years, from {df['Year'].min()} to {df['Year'].max()}.",
+        f"The top-selling car model is {df.groupby('Model')['Sales'].sum().idxmax()} with {df.groupby('Model')['Sales'].sum().max()} units sold.",
+        f"The most common fuel type is {df['Fuel_Type'].mode()[0]}.",
+        f"The average car price in the dataset is ₹{df['Price'].mean():,.0f}.",
+        f"The body type with the highest average price is {df.groupby('Body_Type')['Price'].mean().idxmax()}.",
+        f"The year with the highest total sales was {df.groupby('Year')['Sales'].sum().idxmax()}."
+    ]
+    for insight in insights:
+        st.write(f"- {insight}")
+    
+    st.subheader("Recommendations")
+    recommendations = [
+        "Analyze the factors contributing to the success of the top-selling models and apply these insights to other models.",
+        "Consider expanding the range of electric and CNG vehicles if their sales show a positive trend.",
+        "Investigate the correlation between price and sales to optimize pricing strategies.",
+        "Focus marketing efforts on the body types that show the highest sales and profitability.",
+        "Conduct a deeper analysis of yearly sales trends to identify any patterns or external factors affecting sales.",
+        "Explore the possibility of introducing new models in the most popular segments."
+    ]
+    for recommendation in recommendations:
+        st.write(f"- {recommendation}")
 
-def plot_boxplot(df, column):
-    fig = px.box(df, y=column)
-    st.plotly_chart(fig)
-
-def plot_scatter(df, x_column, y_column):
-    fig = px.scatter(df, x=x_column, y=y_column, trendline="ols")
-    st.plotly_chart(fig)
-
-def plot_correlation_heatmap(df, columns):
-    corr = df[columns].corr()
-    fig = px.imshow(corr, text_auto=True, aspect="auto")
-    st.plotly_chart(fig)
-
-def plot_bar_chart(df, column):
-    value_counts = df[column].value_counts()
-    fig = px.bar(x=value_counts.index, y=value_counts.values, labels={'x': column, 'y': 'Count'})
-    st.plotly_chart(fig)
-
-def plot_pie_chart(df, column):
-    value_counts = df[column].value_counts()
-    fig = px.pie(values=value_counts.values, names=value_counts.index, title=f'Distribution of {column}')
-    st.plotly_chart(fig)
-
-def calculate_statistics(df, column):
-    stats_df = df[column].describe()
-    skewness = df[column].skew()
-    kurtosis = df[column].kurtosis()
-    stats_df['skewness'] = skewness
-    stats_df['kurtosis'] = kurtosis
-    return stats_df
-
-def perform_hypothesis_test(df, column1, column2):
-    _, p_value = stats.ttest_ind(df[column1], df[column2])
-    return p_value
-
+# Main function
 def main():
-    st.title("Advanced Exploratory Data Analysis")
+    st.title("India Car Sales Exploratory Data Analysis")
     
-    uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx", "xls"])
+    # Introduction
+    st.header("Introduction")
+    st.write("""
+    Welcome to the India Car Sales Exploratory Data Analysis (EDA) App! This tool provides insights into car sales data in India, including:
+    - Data exploration of sales, prices, and car characteristics
+    - Visualizations of sales trends, popular models, and market segments
+    - Insights and recommendations based on the analysis
     
-    if uploaded_file is not None:
-        df = load_data(uploaded_file)
-        
-        if df is not None:
-            st.subheader("Data Preview")
-            st.write(df.head())
-            
-            st.subheader("Data Info")
-            buffer = io.StringIO()
-            df.info(buf=buffer)
-            s = buffer.getvalue()
-            st.text(s)
-            
-            numeric_columns = get_numeric_columns(df)
-            categorical_columns = get_categorical_columns(df)
-            
-            st.subheader("Univariate Analysis")
-            selected_column = st.selectbox("Select a column for univariate analysis", df.columns)
-            
-            if selected_column in numeric_columns:
-                st.write("Histogram and Box Plot")
-                plot_histogram(df, selected_column)
-                plot_boxplot(df, selected_column)
-                
-                st.write("Statistics")
-                st.write(calculate_statistics(df, selected_column))
-            else:
-                st.write("Bar Chart")
-                plot_bar_chart(df, selected_column)
-                
-                st.write("Pie Chart")
-                plot_pie_chart(df, selected_column)
-            
-            st.subheader("Bivariate Analysis")
-            x_column = st.selectbox("Select X-axis column", numeric_columns)
-            y_column = st.selectbox("Select Y-axis column", numeric_columns)
-            
-            if x_column != y_column:
-                st.write("Scatter Plot")
-                plot_scatter(df, x_column, y_column)
-                
-                p_value = perform_hypothesis_test(df, x_column, y_column)
-                st.write(f"P-value of t-test: {p_value:.4f}")
-                if p_value < 0.05:
-                    st.write("There is a statistically significant difference between the two variables.")
-                else:
-                    st.write("There is no statistically significant difference between the two variables.")
-            
-            st.subheader("Correlation Analysis")
-            if len(numeric_columns) > 1:
-                st.write("Correlation Heatmap")
-                plot_correlation_heatmap(df, numeric_columns)
-            else:
-                st.write("Not enough numeric columns for correlation analysis.")
-            
-            st.subheader("Additional Insights")
-            st.write(f"- The dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
-            st.write(f"- There are {len(numeric_columns)} numeric columns and {len(categorical_columns)} categorical columns.")
-            st.write(f"- Missing values: {df.isnull().sum().sum()}")
-            st.write(f"- Duplicate rows: {df.duplicated().sum()}")
-            
-            st.subheader("Recommendations")
-            st.write("- Handle missing values through imputation or removal.")
-            st.write("- Remove duplicate rows if they are not intentional.")
-            st.write("- For machine learning tasks, consider encoding categorical variables and scaling numeric variables.")
-            st.write("- Investigate outliers in numeric columns and decide on appropriate treatment.")
-            st.write("- For highly correlated features, consider feature selection or dimensionality reduction techniques.")
-            st.write("- Analyze the distribution of target variables (if any) and consider transformations if needed.")
+    Let's dive into the data and discover interesting patterns in the Indian automotive market!
+    """)
+    
+    # Load data
+    df = load_data()
+    
+    # Data Exploration
+    st.header("Data Exploration")
+    explore_data(df)
+    
+    # Visualizations
+    st.header("Visualizations")
+    create_visualizations(df)
+    
+    # Insights and Recommendations
+    st.header("Insights and Recommendations")
+    generate_insights_and_recommendations(df)
+    
+    # Conclusion
+    st.header("Conclusion")
+    st.write("""
+    This exploratory data analysis of India's car sales data has provided valuable insights into the automotive market trends. We've examined sales distributions, popular models, fuel type preferences, pricing strategies, and yearly trends.
+
+    Key takeaways include:
+    - Identification of top-selling models and manufacturers
+    - Understanding of market preferences in terms of fuel types and body styles
+    - Recognition of pricing trends across different segments
+    - Insights into yearly sales patterns
+
+    These findings can be used to inform business strategies, product development, and marketing campaigns in the Indian automotive industry. However, it's important to note that this analysis is based on a sample dataset and may not reflect the entire market accurately. For more comprehensive insights, consider incorporating additional data sources and conducting more detailed statistical analyses.
+
+    Next steps could include:
+    - Deeper analysis of regional sales patterns
+    - Investigation of the impact of economic factors on car sales
+    - Competitor analysis and market positioning studies
+    - Consumer preference surveys to complement sales data
+
+    Thank you for using the India Car Sales EDA App!
+    """)
 
 if __name__ == "__main__":
     main()
