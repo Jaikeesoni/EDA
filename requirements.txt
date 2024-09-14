@@ -1,9 +1,5 @@
-scikit-learn
 streamlit
 pandas
 numpy
-matplotlib
-datetime
-seaborn
-KMeans
-StandardScaler
+plotly
+scikit-learn
